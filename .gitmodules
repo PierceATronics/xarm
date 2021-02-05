@@ -1,0 +1,3 @@
+[submodule "xArmServoController"]
+	path = xArmServoController
+	url = https://github.com/PierceATronics/xArmServoController.git
