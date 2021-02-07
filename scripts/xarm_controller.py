@@ -5,6 +5,7 @@ import time
 import threading
 import xarm_servo_controller
 from std_msgs.msg import Float64MultiArray
+from xarm.msg import JointCmd
 
 def RAD_2_DEG(x):
     return(x * 180.0 / np.pi)
@@ -35,7 +36,7 @@ class xArmController:
         self.arm = xarm_servo_controller.Controller(port, debug=False)
 
         #subscribe to joint commands
-        rospy.Subscriber("joint_cmd", Float64MultiArray, self._joint_cmd_callback)
+        rospy.Subscriber("joint_cmd", JointCmd, self._joint_cmd_callback)
 
         #publish the estimated joint states (this are simply interpolated)
         self.joint_state_pub = rospy.Publisher("joint_states", Float64MultiArray, queue_size=10)
@@ -75,8 +76,9 @@ class xArmController:
         Execute the command by sending the desired joint positions to the arm.
         '''
 
-        joint_positions = list(msg.data)
-        self._set_joint_positions(joint_positions)
+        joint_positions = list(msg.joint_pos)
+        joint_durations = list(msg.duration)
+        self._set_joint_positions(joint_positions, joint_durations)
 
 
     def _set_joint_positions(self, joint_positions, durations=[1000, 1000, 1000, 1000, 1000, 1000]):
