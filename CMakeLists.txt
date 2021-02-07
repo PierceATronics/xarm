@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
  catkin_python_setup()
- 
+
 add_message_files(
   FILES
   JointCmd.msg
@@ -93,6 +93,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
    scripts/xarm_controller.py
+   scripts/xarm_forward_kinematics.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
