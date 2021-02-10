@@ -5,6 +5,7 @@ import time
 import threading
 import xarm_servo_controller
 from std_msgs.msg import Float64MultiArray
+from std_srvs.srv import SetBool, SetBoolResponse
 from xarm.msg import JointCmd
 
 def RAD_2_DEG(x):
@@ -44,6 +45,14 @@ class xArmController:
         #joint state estimation thread.
         state_estimation_thread = threading.Thread(target=self._state_estimation_thread, daemon=True)
 
+        #Arm control mode service
+        #Mode 1: Execution mode -> joint_cmds are sent to the xarm servos
+        #Mode 2: Waypoint collection mode -> commanding the servo joints is
+        #        inactive. The xarm instead directly reads the joint state from
+        #        the servos themselves.
+        self.mode_service = rospy.Service("xarm_control_mode", SetBool, self._control_mode_callback)
+        self.mode = "EXECUTION"
+
         #The ID orders may be different depending on how the arm is assembled.
         self.J1 = Joint(id=2, name='joint_1')
         self.J2 = Joint(3, 'joint_2')
@@ -78,7 +87,12 @@ class xArmController:
 
         joint_positions = list(msg.joint_pos)
         joint_durations = list(msg.duration)
-        self._set_joint_positions(joint_positions, joint_durations)
+
+        if(self.mode == "EXECUTION"):
+            self._set_joint_positions(joint_positions, joint_durations)
+
+        else:
+            rospy.logwarn("Cannot execute joint command. xArm controller in 'WAYPOINT' collection mode.")
 
 
     def _set_joint_positions(self, joint_positions, durations=[1000, 1000, 1000, 1000, 1000, 1000]):
@@ -101,11 +115,34 @@ class xArmController:
         self.prev_joint_state = np.copy(self.joint_state)
         self.start_state_estimation = True #kickoff the state estimation thread
 
+    def _control_mode_callback(self, req):
+        '''
+        Callback handle for the mode selection service to change the control mode
+        of the xarm.
+        '''
+        if(req.data):
+            self.mode = "EXECUTION"
+
+        else:
+            #turn off motors
+            self.arm.servoOff([joint.id for joint in self.joint_list])
+
+            self.mode = "WAYPOINT"
+
+        rospy.loginfo("xArm control mode changed to %s", self.mode)
+        response = SetBoolResponse()
+        response.success = True
+        response.message = self.mode
+        return response
+
     def _state_estimation_thread(self):
         '''
         A thread that estimates the state of the joints given the joint command and the runtime since the
         joint command was started.
         '''
+
+        joint_state_msg = Float64MultiArray()
+
         while(self.state_estimation_running):
 
             if(self.start_state_estimation): #kickoff the predictions of state when a new joint state command is received.
@@ -135,9 +172,31 @@ class xArmController:
                         else:
                             state_unreached[i] = 1.0
 
+                    #publish the joint state
+                    joint_state_msg.data = list(self.joint_state)
+                    self.joint_state_pub.publish(joint_state_msg)
                     self.threading_looping_rate.sleep()
 
+            elif(self.mode == "WAYPOINT"):
+                #Read the state of each servo directly. This is very slow because
+                #of the request and response time of serial data to each servo.
+
+                #unfortunately the read is so slow that the publish rate in this
+                #mode is < 10Hz.
+                for index, joint in enumerate(self.joint_list):
+                    position = self.arm.getPosition(joint.id, True)
+                    self.joint_state[index] = DEG_2_RAD(position)
+
+                #publish the joint state
+                joint_state_msg.data = list(self.joint_state)
+                self.joint_state_pub.publish(joint_state_msg)
+                self.threading_looping_rate.sleep()
+
             else:
+
+                #publish the joint state
+                joint_state_msg.data = list(self.joint_state)
+                self.joint_state_pub.publish(joint_state_msg)
                 self.threading_looping_rate.sleep()
 
     def run(self):
@@ -148,9 +207,9 @@ class xArmController:
             while not rospy.is_shutdown():
 
                 #publish the joint states at 100Hz.
-                joint_state_msg = Float64MultiArray()
-                joint_state_msg.data = list(self.joint_state)
-                self.joint_state_pub.publish(joint_state_msg)
+                #joint_state_msg = Float64MultiArray()
+                #joint_state_msg.data = list(self.joint_state)
+                #self.joint_state_pub.publish(joint_state_msg)
 
                 self.looping_rate.sleep()
 
