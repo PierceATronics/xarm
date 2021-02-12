@@ -94,6 +94,7 @@ include_directories(
  catkin_install_python(PROGRAMS
    scripts/xarm_controller.py
    scripts/xarm_forward_kinematics.py
+   scripts/xarm_waypoint_execution.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
