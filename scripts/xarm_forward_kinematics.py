@@ -49,6 +49,9 @@ class xArmForwardKinematics:
         #subscriber to receive joint_states
         rospy.Subscriber("joint_states", Float64MultiArray, self._joint_states_callback)
 
+        #Publish the end-effector as SE(3) matrix
+        self.robot_config = rospy.Publisher("robot_config", Float64MultiArray, queue_size=10)
+
         self.looping_rate = rospy.Rate(100)
 
     def _joint_states_callback(self, msg):
@@ -59,11 +62,15 @@ class xArmForwardKinematics:
         joint_states = msg.data
 
         #compute the forward kinematics, do not include the gripper state
-        self.T_end_effector = mr.FKinSpace(self.xarm_params.M,
+        T_end_effector = mr.FKinSpace(self.xarm_params.M,
                                            self.xarm_params.Slist,
                                            joint_states[:4])
 
-        print(repr(self.T_end_effector))
+        print(repr(T_end_effector))
+
+        msg = Float64MultiArray()
+        msg.data = np.ravel(T_end_effector)
+        self.robot_config.publish(msg)
 
     def run(self):
         '''
