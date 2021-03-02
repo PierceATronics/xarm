@@ -17,3 +17,10 @@ matrix and p is the position matrix.
 ```
 rosrun xarm xarm_forward_kinematics
 ```
+
+Update: Now the xarm_controller and xarm_forward_kinematics nodes can be launched
+via the launch file
+
+```
+roslaunch xarm xarm.launch
+```

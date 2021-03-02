@@ -16,8 +16,8 @@ class xArmParameters:
     def __init__(self):
 
         #Define the xarm length parameters
-        self.L_23 = 97.5; self.L_34 = 97.5; self.L_4E = 170.4;
-
+        #self.L_23 = 97.5; self.L_34 = 97.5; self.L_4E = 170.4;
+        self.L_23 = 0.0975; self.L_34=0.0975; self.L_4E=0.1704;
         #home (zero) position of the arm
         self.M = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0],
@@ -82,12 +82,13 @@ class xArmWaypointExecutioner:
         through the recorded waypoint end-effector configurations.
         This method uses cubic time scaling.
         '''
-        POINTS_PER_DIST = 0.01 #points per millimeter
-        TIME_PER_DIST = 0.02 #points per millimeter
+        POINTS_PER_DIST = 50.0 #points per millimeter
+        TIME_PER_DIST = 10.0 #points per millimeter
 
         T_start_i = self.xarm_params.M
         joint_traj = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        
+
+
         for i, T_end_i in enumerate(W):
             #compute the euclidean distance between consectutive
             #waypoints.
@@ -96,29 +97,38 @@ class xArmWaypointExecutioner:
 
             dist = np.sqrt((x_i - x_j)**2 + (y_i - y_j)**2 + (z_i - z_j)**2)
 
+            #Apply heuristic to calculate the number of points in a point-to-point
+            #trajectory.
             #N must be greater than or equal to 2.
             N = math.ceil(POINTS_PER_DIST * dist)
             if N < 2:
                 N = 2
 
             Tf = TIME_PER_DIST * dist
+            print(Tf)
+            #Generate a point-to-point trajectory between two consecutive waypoints.
+            traj_i = mr.ScrewTrajectory(T_start_i, T_end_i, Tf, N, 3)
+            print(len(traj_i))
 
+            #set the initial condition for thetalist.
             if(i == 0):
-                traj_i = mr.CartesianTrajectory(T_start_i, T_end_i, Tf, N, 3)
-                print(len(traj_i))
-                thetalist = [0.0, 0.0, 0.0, 0.0, 0.0]
+                thetalist = [0.00, 0.00, 0.00, 0.00, 0.00]
 
             #perform inverse kinematics for each configuration along the
-            #trajectory.
-
+            #point-to-point trajectory.
             for j, X in enumerate(traj_i[1:]):
                 [thetalist, success] = mr.IKinSpace(self.xarm_params.Slist,
-                                                    sefl.xarm_params.M,
+                                                    self.xarm_params.M,
                                                     X, thetalist,
                                                     0.01,
                                                     0.01)
-                np.vstack((joint_traj, thetalist))
-
+                #append the joint values to the joint trajectory list.
+                #joint_traj = np.vstack((joint_traj, thetalist))
+                print("Success " + str(success))
+            joint_traj = np.vstack((joint_traj, thetalist))
+            T_start_i = np.copy(T_end_i)
+        print(joint_traj)
+        return(joint_traj, Tf)
 
 
 
@@ -154,7 +164,7 @@ class xArmWaypointExecutioner:
                 #That achieves the given waypoints.
                 print("Generating trajectory to achieve the %d recorded waypoints" % self.waypoint_cnt)
 
-                self._generate_trajectory(W)
+                joint_traj, Tf = self._generate_trajectory(W)
 
                 self.waypoint_cnt = 0
                 value = input("Trajectory generation successful! Press 'e' to execute.")
@@ -169,9 +179,24 @@ class xArmWaypointExecutioner:
                 self.mode = 1
                 #set the xarm_controller to execution mode.
                 resp = self.set_xarm_ctrl_mode(self.mode)
-
+                time.sleep(1)
                 #sent the joint angle trajectory THETA to the xarm_controller
                 #to drive the servos of the arm.
+                joint_cmd_msg = JointCmd()
+                for index, joint in enumerate(joint_traj):
+
+
+                    #initially lets do nothing with the end-effector
+                    joint_cmd_msg.joint_pos = list(joint) + [0.0]
+
+                    if(index == 0):
+                        joint_cmd_msg.duration = [1000, 1000, 1000, 1000, 1000, 1000]
+                        self.joint_cmd_pub.publish(joint_cmd_msg)
+                        time.sleep(0.90)
+                    else:
+                        joint_cmd_msg.duration = np.array([Tf, Tf, Tf, Tf, Tf, Tf]) * 1000.0
+                        self.joint_cmd_pub.publish(joint_cmd_msg)
+                        time.sleep(Tf*0.95)
 
                 W = []
                 self.state = self.EXIT

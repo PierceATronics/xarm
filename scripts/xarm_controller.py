@@ -185,6 +185,8 @@ class xArmController:
                 #mode is < 10Hz.
                 for index, joint in enumerate(self.joint_list):
                     position = self.arm.getPosition(joint.id, True)
+                    if(joint.name == "joint_4"):
+                        position *= -1
                     self.joint_state[index] = DEG_2_RAD(position)
 
                 #publish the joint state

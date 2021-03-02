@@ -1,0 +1,9 @@
+
+03/02/2021:
+Joint 4 on the arm is reversed, thus I had to negate its position. This fixed
+a lot of the issues.
+Most of the times when the inverse kinematics converges on a solution, the
+angles are NOT in the range [-pi, pi]. Try writing an angle wrap function to
+make all angles go to -pi, pi.
+Also add a smarter heuristic to catch when the inverse kinematic solution fails.
+Finally, make the angle speeds constant so that the movement is smooth.

@@ -16,8 +16,8 @@ class xArmParameters:
     def __init__(self):
 
         #Define the xarm length parameters
-        self.L_23 = 97.5; self.L_34 = 97.5; self.L_4E = 170.4;
-
+        #self.L_23 = 97.5; self.L_34 = 97.5; self.L_4E = 170.4;
+        self.L_23 = 0.0975; self.L_34=0.0975; self.L_4E=0.1704;
         #home (zero) position of the arm
         self.M = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0],

@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="xarm" name="xarm_controller" type="xarm_controller.py"/>
+  <node pkg="xarm" name="xarm_forward_kinematics" type="xarm_forward_kinematics.py"/>
+</launch>
